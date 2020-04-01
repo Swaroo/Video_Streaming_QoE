@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
     <head>
-        <title>Dash.js Rocks</title>
+        <title>Dash.js Metric Calculator</title>
         <style>
             video {
                 width: 640px;
@@ -13,23 +13,122 @@
         <div>
             <video id="videoPlayer" controls></video>
         </div>
+        <div id="metrics">
+            <h4>Video QoE Metrics (Updated Every second)</h4>
+
+            <label for="duration">Duration:</label>
+            <input type="text" id="duration" name="duration"><br><br>   
+
+            <label for="state">Current Video State :</label>
+            <input type="text" id="state" name="state"><br><br>
+
+            <label for="buffer">Buffer:</label>
+            <input type="text" id="buffer" name="buffer"><br><br>
+
+            <label for="playback_time">Playback Time :</label>
+            <input type="text" id="playback_time" name="playback_time"><br><br>
+
+            <label for="available_playback_time">Available Playback Time :</label>
+            <input type="text" id="available_playback_time" name="available_playback_time"><br><br>
+
+            <label for="avg_thru">Average Throughput :</label>
+            <input type="text" id="avg_thru" name="avg_thru"><br><br>
+
+            <label for="quality">Quality :</label>
+            <input type="text" id="quality" name="quality"><br><br>
+
+            <label for="resolution">Resolution :</label>
+            <input type="text" id="resolution" name="resolution"><br><br>
+
+            <label for="bitrate">Bitrate :</label>
+            <input type="text" id="bitrate" name="bitrate"><br><br>
+
+            <a id = csv_download onclick="download_csv(rows)"><button>Download csv</button></a>
+        </div>
         <script src="dash.all.min.js"></script>
+        <script src="metric_wrapper.js"></script>
         <script>
+
+            var initialTime = Math.floor(Date.now() / 1000);
+            var counter = 1;
+            var currentVideoState = "";
+            var quality = 0;
 		
-                var player = dashjs.MediaPlayer().create();
+            var player = dashjs.MediaPlayer().create();
+            const rows = [
+                            ["Unix TimeStamp","Logical Time", "Duration", "State", "Buffer Level", "Current Playback Time", "Available Playback Time",
+                             "Average Throughput", "Quality Index", "Resolution", "Bitrate"]
+                         ];
             (function(){
-                var url = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd";
-                player.initialize(document.querySelector("#videoPlayer"), url, true);
-		//console.log(player.duration);
-		//    debugger;
+                var url = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd";
+                player.initialize(document.querySelector("#videoPlayer"), url, true); 
+                //player.setSelectionModeForInitialTrack("TRACK_SELECTION_MODE_WIDEST_RANGE");           
             })();
 
-		var vid = document.getElementById("videoPlayer");
-		vid.onloadedmetadata = function() {
-		  console.log('metadata loaded!');
-		  console.log(vid.duration);
-		  debugger;
-		};
+
+
+            //Video Event Handlers
+            player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], function() {
+                currentVideoState = "PLAYBACK_ENDED";      
+                document.getElementById('state').value = currentVideoState;
+                rows.push(addNewRow(counter));
+                clearInterval(eventPoller);
+            });
+
+            // player.on(dashjs.MediaPlayer.events["PLAYBACK_STARTED"], function() {
+            //     console.log("Started");
+            //     currentVideoState = "PLAYBACK_STARTED";   
+            // });
+
+            player.on(dashjs.MediaPlayer.events["PLAYBACK_PLAYING"], function() {
+                currentVideoState = "PLAYBACK_PLAYING";   
+            });
+
+            // player.on(dashjs.MediaPlayer.events["PLAYBACK_PROGRESS"], function() {    
+            //     console.log("Progress"); 
+            //     currentVideoState = "PLAYBACK_PROGRESS";  
+            // });
+
+            player.on(dashjs.MediaPlayer.events["PLAYBACK_WAITING"], function() {    
+                currentVideoState = "PLAYBACK_WAITING";  
+            });            
+
+            // player.on(dashjs.MediaPlayer.events["PLAYBACK_STALLED"], function() {  
+            //     console.log("Playback stalled");   
+            //     currentVideoState = "PLAYBACK_STALLED"; 
+            // });  
+            
+            player.on(dashjs.MediaPlayer.events["PLAYBACK_PAUSED"], function() {     
+                currentVideoState = "PLAYBACK_PAUSED";  
+            });
+
+            var vid = document.getElementById("videoPlayer");
+            vid.onloadedmetadata = function() {
+                player.play();
+                document.getElementById('duration').value = vid.duration;
+            };
+
+            var eventPoller = setInterval(function(){
+                document.getElementById('buffer').value = getBufferLength(player);
+                document.getElementById('available_playback_time').value = getAvailablePlaybackTime(player);
+                document.getElementById('playback_time').value = getPlaybackTime(player);
+                quality = getVideoQualityIndex(player);                
+                document.getElementById('avg_thru').value = getAverageThroughput(player);
+                document.getElementById('quality').value = quality;
+                document.getElementById('resolution').value = getResolution(player, quality);
+                document.getElementById('bitrate').value = getBitrate(player,quality);                      
+                document.getElementById('state').value = currentVideoState;      
+                
+                rows.push(addNewRow(counter));
+                counter = counter + 1;
+                
+
+            }, 1000);
+
+
+        
+
+            
         </script>
     </body>
 </html>
